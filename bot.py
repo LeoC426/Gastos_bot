@@ -41,7 +41,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Formato para actualizar gastos:\n"
         "Nombre, Precio real\n"
         "Ejemplo:\n"
-        "Comida, 400"
+        "Comida, 400\n\n"
         "Puedes pedir tus gastos desglosados con /exportar\n\n"
         "Borrar un gasto con /borrar_gasto\n"
         "Formato:\n"
