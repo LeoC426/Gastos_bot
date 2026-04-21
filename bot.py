@@ -5,6 +5,7 @@ from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
+import re
 
 from config import TOKEN
 import database
@@ -147,6 +148,9 @@ async def categorias(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def exportar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     data = database.get_all_by_user(user_id)
+    user = update.effective_user
+    nombre = user.first_name
+    nombre = re.sub(r"[^a-zA-Z0-9_]", "", nombre)
 
     if not data:
         await update.message.reply_text("No tienes gastos para exportar.")
@@ -162,7 +166,7 @@ async def exportar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     df["Precio Real"] = df["Precio Real"].fillna(0)
     df["Diferencia"] = df["Precio Real"] - df["Monto"]
 
-    filename = f"gastos_{user_id}.xlsx"
+    filename = f"gastos_{nombre}.xlsx"
 
     # Crear en memoria
     file_stream = BytesIO()
