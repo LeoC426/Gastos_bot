@@ -117,25 +117,29 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # EXPORTAR CON / SIN GRAFICAS
     if user_states.get(user_id) == "esperando_tipo_exportacion":
-
         respuesta = text.strip().lower()
+        user_states.pop(user_id, None)
 
-        if respuesta not in ["si", "sí", "no"]:
+        if respuesta == "si":
 
-            await update.message.reply_text(
-                "Responde solamente:\nSI\nNO"
+            await generar_excel(
+                update,
+                incluir_graficas=True
             )
-            return
+            
+        elif respuesta == "no":
+            
+            await generar_excel(
+                update,
+                incluir_graficas=False
+            )
 
-        incluir_graficas = respuesta in ["si", "sí"]
-
-        user_states.pop(user_id)
-
-        await generar_excel(
-            update,
-            incluir_graficas
-        )
-
+        else:
+        
+            await update.message.reply_text(
+                "Responde solamente:\nSI o NO"
+            )
+    
         return
     
     # CASO GENERAL
@@ -414,7 +418,7 @@ async def generar_excel(update, incluir_graficas=False):
     ws[f"B{last_row+3}"] = df["Diferencia"].sum()
 
     # GRÁFICAS
-    if user_states.get(user_id) == "graficas_si":
+    if incluir_graficas:
 
         # DATOS PARA GRAFICA
         categorias = df.groupby("Categoría")["Monto"].sum()
