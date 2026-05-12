@@ -8,6 +8,12 @@ from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, fil
 import re
 from config import TOKEN
 import database
+import logging
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
 
 user_states = {}
 
@@ -410,61 +416,81 @@ async def generar_excel(update, incluir_graficas=False):
     # GRAFICAS
     if incluir_graficas:
 
-        resumen_categoria = (
-            df.groupby("Categoría")["Monto"]
-            .sum()
-            .reset_index()
-        )
+        try:
 
-        start_chart_row = last_row + 6
+            resumen_categoria = (
+                df.groupby("Categoría")["Monto"]
+                .sum()
+                .reset_index()
+            )
 
-        ws[f"J1"] = "Categoría"
-        ws[f"K1"] = "Monto"
+            # TABLA AUXILIAR
+            ws["J1"] = "Categoría"
+            ws["K1"] = "Monto"
 
-        for idx, row in resumen_categoria.iterrows():
+            for idx, row_data in resumen_categoria.iterrows():
 
-            ws[f"J{idx+2}"] = row["Categoría"]
-            ws[f"K{idx+2}"] = row["Monto"]
+                ws[f"J{idx+2}"] = str(row_data["Categoría"])
 
-        # PIE CHART
-        pie = PieChart()
+                ws[f"K{idx+2}"] = float(row_data["Monto"])
 
-        labels = Reference(
-            ws,
-            min_col=10,
-            min_row=2,
-            max_row=len(resumen_categoria)+1
-        )
+            # REFERENCIAS
+            labels = Reference(
+                ws,
+                min_col=10,
+                min_row=2,
+                max_row=len(resumen_categoria) + 1
+            )
 
-        data_ref = Reference(
-            ws,
-            min_col=11,
-            min_row=1,
-            max_row=len(resumen_categoria)+1
-        )
+            data_ref = Reference(
+                ws,
+                min_col=11,
+                min_row=1,
+                max_row=len(resumen_categoria) + 1
+            )
 
-        pie.add_data(data_ref, titles_from_data=True)
+            # PIE CHART
+            pie = PieChart()
 
-        pie.set_categories(labels)
+            pie.add_data(
+                data_ref,
+                titles_from_data=True
+            )
 
-        pie.title = "Gastos por categoría"
+            pie.set_categories(labels)
 
-        ws.add_chart(pie, f"J{start_chart_row}")
+            pie.title = "Gastos por categoría"
 
-        # BAR CHART
-        bar = BarChart()
+            pie.height = 10
+            pie.width = 12
 
-        bar.add_data(data_ref, titles_from_data=True)
+            ws.add_chart(pie, "M2")
 
-        bar.set_categories(labels)
+            # BAR CHART
 
-        bar.title = "Comparación de gastos"
+            bar = BarChart()
 
-        bar.y_axis.title = "Monto"
+            bar.add_data(
+                data_ref,
+                titles_from_data=True
+            )
 
-        bar.x_axis.title = "Categoría"
+            bar.set_categories(labels)
 
-        ws.add_chart(bar, f"R{start_chart_row}")
+            bar.title = "Comparación de gastos"
+
+            bar.y_axis.title = "Monto"
+
+            bar.x_axis.title = "Categoría"
+
+            bar.height = 10
+            bar.width = 14
+
+            ws.add_chart(bar, "M20")
+
+        except Exception as e:
+
+            print("ERROR GRAFICAS:", e)
 
     # GUARDAR
     output = BytesIO()
