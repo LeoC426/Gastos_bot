@@ -2,7 +2,7 @@ import pandas as pd
 from io import BytesIO
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment
-from openpyxl.chart import BarChart, Reference
+from openpyxl.chart import BarChart, Reference, PieChart
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
 import re
@@ -413,84 +413,59 @@ async def generar_excel(update, incluir_graficas=False):
     ws[f"A{last_row+3}"] = "Diferencia total"
     ws[f"B{last_row+3}"] = df["Diferencia"].sum()
 
-    # GRAFICAS
-    if incluir_graficas:
+    # GRÁFICAS
+    if user_states.get(user_id) == "graficas_si":
 
-        try:
+        # DATOS PARA GRAFICA
+        categorias = df.groupby("Categoría")["Monto"].sum()
 
-            resumen_categoria = (
-                df.groupby("Categoría")["Monto"]
-                .sum()
-                .reset_index()
-            )
+        chart_sheet = wb.create_sheet(title="Graficas")
 
-            # TABLA AUXILIAR
-            ws["J1"] = "Categoría"
-            ws["K1"] = "Monto"
+        chart_sheet["A1"] = "Categoría"
+        chart_sheet["B1"] = "Total"
 
-            for idx, row_data in resumen_categoria.iterrows():
+        for idx, (cat, total) in enumerate(categorias.items(), start=2):
+            chart_sheet[f"A{idx}"] = cat
+            chart_sheet[f"B{idx}"] = total
 
-                ws[f"J{idx+2}"] = str(row_data["Categoría"])
+        # GRAFICA DE BARRAS
+        bar = BarChart()
 
-                ws[f"K{idx+2}"] = float(row_data["Monto"])
+        data = Reference(
+            chart_sheet,
+            min_col=2,
+            min_row=1,
+            max_row=len(categorias) + 1
+        )
 
-            # REFERENCIAS
-            labels = Reference(
-                ws,
-                min_col=10,
-                min_row=2,
-                max_row=len(resumen_categoria) + 1
-            )
+        labels = Reference(
+            chart_sheet,
+            min_col=1,
+            min_row=2,
+            max_row=len(categorias) + 1
+        )
 
-            data_ref = Reference(
-                ws,
-                min_col=11,
-                min_row=1,
-                max_row=len(resumen_categoria) + 1
-            )
+        bar.add_data(data, titles_from_data=True)
+        bar.set_categories(labels)
 
-            # PIE CHART
-            pie = PieChart()
+        bar.title = "Gastos por Categoría"
+        bar.y_axis.title = "Monto"
+        bar.x_axis.title = "Categoría"
 
-            pie.add_data(
-                data_ref,
-                titles_from_data=True
-            )
+        chart_sheet.add_chart(bar, "D2")
 
-            pie.set_categories(labels)
+        # GRAFICA PIE
+        pie = PieChart()
 
-            pie.title = "Gastos por categoría"
+        pie.add_data(data, titles_from_data=True)
+        pie.set_categories(labels)
 
-            pie.height = 10
-            pie.width = 12
+        pie.title = "Distribución de Gastos"
 
-            ws.add_chart(pie, "M2")
+        chart_sheet.add_chart(pie, "D20")
 
-            # BAR CHART
-
-            bar = BarChart()
-
-            bar.add_data(
-                data_ref,
-                titles_from_data=True
-            )
-
-            bar.set_categories(labels)
-
-            bar.title = "Comparación de gastos"
-
-            bar.y_axis.title = "Monto"
-
-            bar.x_axis.title = "Categoría"
-
-            bar.height = 10
-            bar.width = 14
-
-            ws.add_chart(bar, "M20")
-
-        except Exception as e:
-
-            print("ERROR GRAFICAS:", e)
+        # limpiar estado
+        user_states.pop(user_id, None)
 
     # GUARDAR
     output = BytesIO()
